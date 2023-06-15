@@ -14,7 +14,7 @@
     "url": "https://github.com/Ethan66/node-console-link"
   },
   "scripts": {
-    "test": "node ./src/index.js ./test/index.vue",
+    "test": "node ./src/index.js ./test/index.js",
     "build": "rollup -c rollup.config.mjs",
     "pub": "yarn build && npm publish --registry=https://registry.npmjs.org/"
   },
@@ -26,7 +26,14 @@
     "@rollup/plugin-node-resolve": "^15.1.0",
     "prettier": "^2.8.8",
     "rollup": "^3.25.1",
-    "rollup-plugin-terser": "^7.0.2"
+    "rollup-plugin-terser": "^7.0.2",
+    "eslint": "^8.0.1",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-config-standard-with-typescript": "^35.0.0",
+    "eslint-plugin-import": "^2.25.2",
+    "eslint-plugin-n": "^15.0.0",
+    "eslint-plugin-promise": "^6.0.0",
+    "typescript": "*"
   },
   "dependencies": {}
 }

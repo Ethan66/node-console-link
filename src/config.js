@@ -14,7 +14,7 @@ const NEW_NATIVE_MAP_METHODS = NATIVE_MAP_METHODS.map(apiName => `${apiName}(`)
 const randomColor = Array.from(gradientColorMap.keys())[Math.floor(Math.random() * gradientColorMap.size)]
 const prefix = [
   '%c',
-  `background-image: ${gradientColorMap.get(randomColor)}; padding: 1px 8px; border-radius: 2px; font-size: 12px; color: #fff; font-weight: 600;`]
+  `background: ${gradientColorMap.get(randomColor)}; padding: 1px 6px; color: #fff; border-radius: 2px;`]
 
 module.exports = {
   NATIVE_MAP_METHODS, NEW_NATIVE_MAP_METHODS, prefix

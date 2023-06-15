@@ -19,10 +19,11 @@ const getDirectory = () => {
 }
 
 // 获取非空白符的函数体，剔除打印过的
-const getRealFun = (fnContext) => {
+const getRealFun = fnContext => {
   const match = fnContext.match(/\S+/)
   if (match) {
-    if (match[0].startsWith('console.log(\'%c')) { // 打印过的不需要再打印
+    if (match[0].startsWith("console.log('%c")) {
+      // 打印过的不需要再打印
       return ''
     } else {
       return fnContext
@@ -33,9 +34,10 @@ const getRealFun = (fnContext) => {
 }
 
 // 处理fnName
-const getPureFnName = (fnName) => {
+const getPureFnName = fnName => {
   let result = ''
   fnName = fnName.replace(/^.*?([\w_\s=]+)$/, '$1')
+  result = fnName
   const temp = fnName.split('=')
   // 说明是function fn(){} 或者{ fn(a, b) {}}
   if (temp.length === 1) {
@@ -44,11 +46,12 @@ const getPureFnName = (fnName) => {
   } else if (temp.length === 2) {
     result = temp[0].replace(/^.*?\s*([\w_.]+)\s*$/, '$1')
   }
+  result = result.replace(/\r/g, '')
   return result
 }
 
 // 处理ts中的arg，只拿到arg
-const getPureArg = (arg) => {
+const getPureArg = arg => {
   const result = arg.split(',').reduce((data, cur, i) => {
     if (i > 0) {
       data += ', '
@@ -62,7 +65,7 @@ const getPureArg = (arg) => {
 
 // 对arg进行JSON处理
 const getCopyArg = arg => {
-  return arg.replace(/\w+/g, (str) => {
+  return arg.replace(/\w+/g, str => {
     return `typeof ${str} === 'object' ? JSON.parse(JSON.stringify(${str})) : ${str}`
   })
 }
@@ -80,7 +83,7 @@ const getAddConsoleFunCode = (fnCode, consoleContent) => {
 }
 
 // 获取函数代码对象
-const getFunCodeOb = (code) => {
+const getFunCodeOb = code => {
   let result = {
     str: '',
     fnName: '',
@@ -96,6 +99,10 @@ const getFunCodeOb = (code) => {
     result.fnContext = getRealFun(fnContext)
     if (result.fnContext) {
       result.fnName = getPureFnName(fnName)
+      if (!result.fnName) {
+        result.fnContext = ''
+        return result
+      }
       // 关键字剔除
       if (['for', 'switch', ...NATIVE_MAP_METHODS].includes(result.fnName)) {
         result.fnContext = ''
@@ -109,7 +116,7 @@ const getFunCodeOb = (code) => {
       result.arg = getPureArg(arg)
     }
   })
-  //   console.warn('----- my data is result: ', result)
+  //   console.warn("----- my data is result: ", result);
   return result
 }
 
