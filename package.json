@@ -1,0 +1,32 @@
+{
+  "name": "node-console-link",
+  "version": "0.0.3",
+  "description": "",
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "pr-link": "dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ethan66/node-console-link"
+  },
+  "scripts": {
+    "test": "node ./src/index.js ./test/index.vue",
+    "build": "rollup -c rollup.config.mjs",
+    "pub": "yarn build && npm publish --registry=https://registry.npmjs.org/"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.1",
+    "@rollup/plugin-node-resolve": "^15.1.0",
+    "prettier": "^2.8.8",
+    "rollup": "^3.25.1",
+    "rollup-plugin-terser": "^7.0.2"
+  },
+  "dependencies": {}
+}
