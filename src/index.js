@@ -6,12 +6,12 @@ const { getDirectory, getNewCode } = require('./utils/index')
 const dirPath = getDirectory()
 
 // 遍历目录
-function traverseDir (dir, callback) {
+function traverseDir(dir, callback) {
   if (!fs.statSync(dir).isDirectory()) {
     callback(dir)
     return
   }
-  fs.readdirSync(dir).forEach((file) => {
+  fs.readdirSync(dir).forEach(file => {
     const filePath = path.join(dir, file)
     if (fs.statSync(filePath).isDirectory()) {
       traverseDir(filePath, callback)
@@ -24,7 +24,7 @@ function traverseDir (dir, callback) {
 }
 
 // 处理文件
-function processFile (filePath) {
+function processFile(filePath) {
   console.log(`Processing ${filePath}...`)
 
   // 读取文件内容
