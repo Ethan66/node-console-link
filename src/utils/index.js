@@ -79,8 +79,11 @@ const getPureArg = (arg, fnName) => {
 
 // 将arg的回车换行进行清除
 const getPureInitArg = arg => {
-    // 把字符串进行转换
-  return arg.replace(/[\n\r]/g, '').replace(/\s+$/g, '').replace(/'/g, '\\\'')
+  // 把字符串进行转换
+  return arg
+    .replace(/[\n\r]/g, '')
+    .replace(/\s+$/g, '')
+    .replace(/'/g, "\\'")
 }
 
 // 对arg进行JSON处理
@@ -151,16 +154,9 @@ const getFunCodeOb = code => {
 }
 
 // 获取添加后的代码
-const getNewCode = (code, extension) => {
+const getNewCode = code => {
   if (!code) return ''
   let result = ''
-  if (extension === 'vue') {
-    const index = code.indexOf('</template>')
-    if (index > -1) {
-      result += code.slice(0, index)
-      code = code.slice(index)
-    }
-  }
   const funCodeOb = getFunCodeOb(code)
   if (funCodeOb.str && funCodeOb.fnContext) {
     const { str, fnName, initArg, arg, fnContext, index } = funCodeOb

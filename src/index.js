@@ -29,7 +29,16 @@ function processFile(filePath) {
 
   // 读取文件内容
   const code = fs.readFileSync(filePath, 'utf-8')
-  const newCode = getNewCode(code, filePath.replace(/^.+\./, ''))
+  let newCode = ''
+  const extension = filePath.replace(/^.+\./, '')
+  if (extension === 'vue') {
+    const scriptIndex = code.indexOf('<script')
+    const scriptLastIndex = code.indexOf('</script>')
+    newCode =
+      code.slice(0, scriptIndex) + getNewCode(code.slice(scriptIndex, scriptLastIndex)) + code.slice(scriptLastIndex)
+  } else {
+    newCode = getNewCode(code)
+  }
   fs.writeFileSync(filePath, newCode)
   console.log(chalk.green(`Success: ${filePath}`))
 }
