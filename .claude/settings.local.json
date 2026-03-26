@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(yarn install:*)",
+      "Bash(node test/test.js)"
+    ]
+  }
+}

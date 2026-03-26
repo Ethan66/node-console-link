@@ -1,24 +1,27 @@
 {
   "name": "node-console-link",
-  "version": "0.0.5",
-  "description": "",
+  "version": "1.0.0",
+  "description": "Auto-inject console.log into business functions for Vue2/Vue3 projects",
   "main": "dist/index.js",
   "files": [
     "dist"
   ],
-  "bin": {
-    "pr-link": "dist/index.js"
+  "exports": {
+    ".": "./dist/index.js",
+    "./webpack": "./dist/webpack/loader.js",
+    "./vite": "./dist/vite/plugin.js",
+    "./runtime": "./dist/runtime/index.js"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/Ethan66/node-console-link"
   },
   "scripts": {
-    "test": "node ./src/index.js ./test/index.js",
+    "test": "node ./test/test.js",
     "build": "rollup -c rollup.config.mjs",
     "pub": "yarn build && npm publish --registry=https://registry.npmjs.org/"
   },
-  "keywords": [],
+  "keywords": ["console", "debug", "vue", "webpack-loader", "vite-plugin"],
   "author": "",
   "license": "ISC",
   "devDependencies": {
@@ -35,5 +38,14 @@
     "eslint-plugin-promise": "^6.0.0",
     "typescript": "*"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@babel/generator": "^7.23.0",
+    "@babel/parser": "^7.23.0",
+    "@babel/traverse": "^7.23.0",
+    "@babel/types": "^7.23.0"
+  },
+  "volta": { 
+    "node": "20.10.0",
+    "yarn": "1.22.19"
+  }
 }
