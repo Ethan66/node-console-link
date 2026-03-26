@@ -10,7 +10,19 @@ const DEFAULTS = {
   enabled: true,
   include: null, // 默认处理 src 目录
   exclude: /node_modules/,
+  ignore: [], // 白名单文件路径列表，如 ['src/utils/network.js']
   injectRuntime: true
+}
+
+function isIgnored(filePath, ignoreList, root) {
+  if (!ignoreList || ignoreList.length === 0) return false
+  var relativePath = path.relative(root, filePath).replace(/\\/g, '/')
+  return ignoreList.some(function(pattern) {
+    var p = pattern.replace(/\\/g, '/')
+    if (relativePath === p || relativePath.endsWith('/' + p)) return true
+    if (relativePath.startsWith(p + '/')) return true
+    return false
+  })
 }
 
 function consoleLinkPlugin(userOptions = {}) {
@@ -52,6 +64,9 @@ function consoleLinkPlugin(userOptions = {}) {
           return null
         }
       }
+
+      // 白名单文件跳过
+      if (isIgnored(normalizedId, options.ignore, projectRoot)) return null
 
       const filename = normalizedId.split('/').pop() || normalizedId.split('\\').pop() || 'unknown.js'
 
