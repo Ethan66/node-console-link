@@ -8,8 +8,8 @@ const RUNTIME_CODE = require('fs').readFileSync(
   'utf-8'
 )
 
-// 需要过滤的关键字/语句（非函数）
-const SKIP_NAMES = new Set(['for', 'while', 'do', 'switch', 'catch'])
+// 需要过滤的关键字/语句（非函数）+ Vue 的 data 钩子
+const SKIP_NAMES = new Set(['for', 'while', 'do', 'switch', 'catch', 'data'])
 
 // 原生数组遍历方法，作为回调时跳过
 const ARRAY_METHODS = new Set([
