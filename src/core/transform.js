@@ -3,19 +3,27 @@ const traverse = require('@babel/traverse').default || require('@babel/traverse'
 const generate = require('@babel/generator').default || require('@babel/generator')
 const t = require('@babel/types')
 
-const RUNTIME_CODE = require('fs').readFileSync(
-  require('path').resolve(__dirname, '../runtime/index.js'),
-  'utf-8'
-)
+const RUNTIME_CODE = require('fs').readFileSync(require('path').resolve(__dirname, '../runtime/index.js'), 'utf-8')
 
-// 需要过滤的关键字/语句（非函数）+ Vue 的 data 钩子
-const SKIP_NAMES = new Set(['for', 'while', 'do', 'switch', 'catch', 'data'])
+// 需要过滤的关键字/语句（非函数）+ Vue 的 data 钩子 + render 函数
+const SKIP_NAMES = new Set(['for', 'while', 'do', 'switch', 'catch', 'data', 'render'])
 
 // 原生数组遍历方法，作为回调时跳过
 const ARRAY_METHODS = new Set([
-  'forEach', 'map', 'reduce', 'reduceRight', 'filter',
-  'find', 'findIndex', 'every', 'some', 'sort',
-  'flatMap', 'keys', 'values', 'entries'
+  'forEach',
+  'map',
+  'reduce',
+  'reduceRight',
+  'filter',
+  'find',
+  'findIndex',
+  'every',
+  'some',
+  'sort',
+  'flatMap',
+  'keys',
+  'values',
+  'entries'
 ])
 
 /**
@@ -147,30 +155,36 @@ function getParamNames(params) {
 }
 
 /**
- * 构建注入的 AST 节点：
- * window.__CONSOLE_LINK__ && window.__CONSOLE_LINK__("fnName", "a, b", [a, b])
+ * 构建注入的 AST 节点（含 try/finally）：
+ *
+ * var __cl = window.__CONSOLE_LINK__ && window.__CONSOLE_LINK__("fnName", "a, b", [a, b]);
+ * try { ...originalBody } finally { __cl && __cl(); }
  */
-function buildInjection(fnName, paramNames, paramIds) {
-  const consoleLinkAccess = t.memberExpression(
-    t.identifier('window'),
-    t.identifier('__CONSOLE_LINK__')
+function buildInjection(fnName, paramNames, paramIds, originalStatements, location) {
+  const consoleLinkAccess = t.memberExpression(t.identifier('window'), t.identifier('__CONSOLE_LINK__'))
+
+  const callExpr = t.callExpression(t.memberExpression(t.identifier('window'), t.identifier('__CONSOLE_LINK__')), [
+    t.stringLiteral(fnName),
+    t.stringLiteral(paramNames.join(', ')),
+    t.arrayExpression(paramIds),
+    t.stringLiteral(location)
+  ])
+
+  // var __cl = window.__CONSOLE_LINK__ && window.__CONSOLE_LINK__(...)
+  const varDecl = t.variableDeclaration('var', [
+    t.variableDeclarator(t.identifier('__cl'), t.logicalExpression('&&', consoleLinkAccess, callExpr))
+  ])
+
+  // try { ...originalBody } finally { __cl && __cl() }
+  const tryFinally = t.tryStatement(
+    t.blockStatement(originalStatements),
+    null,
+    t.blockStatement([
+      t.expressionStatement(t.logicalExpression('&&', t.identifier('__cl'), t.callExpression(t.identifier('__cl'), [])))
+    ])
   )
 
-  const callExpr = t.callExpression(
-    t.memberExpression(
-      t.identifier('window'),
-      t.identifier('__CONSOLE_LINK__')
-    ),
-    [
-      t.stringLiteral(fnName),
-      t.stringLiteral(paramNames.join(', ')),
-      t.arrayExpression(paramIds)
-    ]
-  )
-
-  return t.expressionStatement(
-    t.logicalExpression('&&', consoleLinkAccess, callExpr)
-  )
+  return { varDecl, tryFinally }
 }
 
 /**
@@ -182,7 +196,7 @@ function buildInjection(fnName, paramNames, paramIds) {
  * @returns {{ code: string, map?: object }}
  */
 function transform(code, options = {}) {
-  const { filename = 'unknown.js', injectRuntime = true } = options
+  const { filename = 'unknown.js', injectRuntime = true, lineOffset = 0 } = options
 
   const isTS = /\.tsx?$/.test(filename)
   const isJSX = /\.[jt]sx$/.test(filename)
@@ -208,7 +222,7 @@ function transform(code, options = {}) {
   let hasInjection = false
 
   traverse(ast, {
-    'FunctionDeclaration|FunctionExpression|ArrowFunctionExpression|ObjectMethod|ClassMethod': function(path) {
+    'FunctionDeclaration|FunctionExpression|ArrowFunctionExpression|ObjectMethod|ClassMethod': function (path) {
       // 跳过没有块语句体的箭头函数 (如 () => expr)
       if (!t.isBlockStatement(path.node.body)) return
 
@@ -228,11 +242,20 @@ function transform(code, options = {}) {
       const paramIds = getParamIdentifiers(path.node.params)
       const paramNames = getParamNames(path.node.params)
 
-      // 构建注入节点
-      const injection = buildInjection(fnName, paramNames, paramIds)
+      // 获取从 src 开始的文件路径和行号
+      const normalizedName = filename.replace(/\\/g, '/')
+      const srcIndex = normalizedName.lastIndexOf('/src/')
+      const shortName =
+        srcIndex !== -1 ? normalizedName.slice(srcIndex + 1) : normalizedName.split('/').pop() || filename
+      const line = (path.node.loc ? path.node.loc.start.line : 0) + lineOffset
+      const location = shortName.replace(/\//g, '\\') + ':' + line
 
-      // 在函数体首行插入
-      path.node.body.body.unshift(injection)
+      // 保存原始函数体，构建 try/finally 包裹
+      const originalStatements = [...path.node.body.body]
+      const { varDecl, tryFinally } = buildInjection(fnName, paramNames, paramIds, originalStatements, location)
+
+      // 替换函数体为：var __cl = ...; try { 原始体 } finally { __cl && __cl() }
+      path.node.body.body = [varDecl, tryFinally]
       hasInjection = true
     }
   })
@@ -245,10 +268,14 @@ function transform(code, options = {}) {
     ast.program.body.unshift(...runtimeAST.program.body)
   }
 
-  const output = generate(ast, {
-    retainLines: true,
-    compact: false
-  }, code)
+  const output = generate(
+    ast,
+    {
+      retainLines: true,
+      compact: false
+    },
+    code
+  )
 
   return {
     code: output.code,

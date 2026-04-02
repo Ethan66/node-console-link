@@ -1,4 +1,5 @@
 const path = require('path')
+const fs = require('fs')
 const { transform } = require('../core/transform')
 
 const DEFAULTS = {
@@ -54,9 +55,24 @@ function consoleLinkLoader(source) {
   const context = this.rootContext || this.context || process.cwd()
   if (isIgnored(filename, options.ignore, context)) return source
 
+  // .vue 文件计算 <script> 标签的起始行号偏移
+  let lineOffset = 0
+  if (/\.vue$/.test(filename)) {
+    try {
+      const vueContent = fs.readFileSync(filename, 'utf-8')
+      const scriptMatch = vueContent.match(/^([\s\S]*?)<script[^>]*>/m)
+      if (scriptMatch) {
+        lineOffset = scriptMatch[1].split('\n').length
+      }
+    } catch (e) {
+      // 读取失败则不偏移
+    }
+  }
+
   const result = transform(source, {
     filename,
-    injectRuntime: options.injectRuntime
+    injectRuntime: options.injectRuntime,
+    lineOffset
   })
 
   return result.code

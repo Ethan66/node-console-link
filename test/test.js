@@ -111,12 +111,15 @@ for (const tc of testCases) {
         failed++
       }
     } else {
-      if (result.code.includes('__CONSOLE_LINK__') && result.code.includes(`"${tc.expectFnName}"`)) {
-        console.log(`\u2705 ${tc.name} - 注入成功，函数名: ${tc.expectFnName}`)
+      const hasLink = result.code.includes('__CONSOLE_LINK__') && result.code.includes(`"${tc.expectFnName}"`)
+      const hasTryFinally = result.code.includes('try') && result.code.includes('finally') && result.code.includes('__cl')
+      if (hasLink && hasTryFinally) {
+        console.log(`\u2705 ${tc.name} - 注入成功，函数名: ${tc.expectFnName}，含 try/finally`)
         passed++
       } else {
         console.log(`\u274C ${tc.name} - 注入失败`)
-        console.log('  输出:', result.code.slice(0, 200))
+        console.log('  hasLink:', hasLink, 'hasTryFinally:', hasTryFinally)
+        console.log('  输出:', result.code.slice(0, 300))
         failed++
       }
     }

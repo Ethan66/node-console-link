@@ -1,26 +1,38 @@
-;(function() {
-  var root = typeof globalThis !== 'undefined'
-    ? globalThis
-    : typeof window !== 'undefined'
+;(function () {
+  var root =
+    typeof globalThis !== 'undefined'
+      ? globalThis
+      : typeof window !== 'undefined'
       ? window
       : typeof global !== 'undefined'
-        ? global
-        : {}
+      ? global
+      : {}
 
   if (root.__CONSOLE_LINK__) return
 
   var COLORS = [
-    '#FF416C', '#2196F3', '#00b09b', '#FFA500',
-    '#9733EE', '#FDB813', '#E91E63', '#00BCD4',
-    '#8BC34A', '#FF5722', '#673AB7', '#009688'
+    '#FF416C',
+    '#2196F3',
+    '#00b09b',
+    '#FFA500',
+    '#9733EE',
+    '#FDB813',
+    '#E91E63',
+    '#00BCD4',
+    '#8BC34A',
+    '#FF5722',
+    '#673AB7',
+    '#009688'
   ]
   var colorIndex = 0
+  var colorStack = []
 
-  root.__CONSOLE_LINK__ = function(fnName, paramStr, args) {
-    var color = COLORS[colorIndex % COLORS.length]
-    colorIndex++
+  root.__CONSOLE_LINK__ = function (fnName, paramStr, args, location) {
+    // 栈空 = 顶层调用，分配新颜色；栈非空 = 子函数，复用栈顶颜色
+    var color = colorStack.length > 0 ? colorStack[colorStack.length - 1] : COLORS[colorIndex++ % COLORS.length]
+    colorStack.push(color)
     var fnStyle = 'background:' + color + ';padding:1px 6px;color:#fff;border-radius:2px;'
-    var argStyle = 'background:#35495e;padding:1px 6px;color:#fff;border-radius:2px;'
+    var locStyle = 'background:#909399;padding:1px 6px;color:#fff;border-radius:2px;'
 
     // 判断是否是 DOM/Event/Vue 实例等不可序列化的对象
     function isUnsafeObject(val) {
@@ -75,12 +87,23 @@
 
     var argDisplay = args.length > 0 ? ' ' + inlineStr : ''
 
-    // %c函数名%c(形参)%c 实参值
-    // 第三个 %c 切回无样式，让实参部分没有背景色
-    var label = paramStr
-      ? '%c' + fnName + '%c(' + paramStr + ')%c' + argDisplay
-      : '%c' + fnName + '%c()%c' + argDisplay
+    // 格式：%c函数名(形参)%c 实参值 %c文件:行号
+    // 参数顺序：[label, fnStyle, '', ...extraArgs(对应%o), locStyle]
+    var tag = paramStr ? fnName + '(' + paramStr + ')' : fnName + '()'
+    var label = '%c' + tag + '%c' + argDisplay
+    var logArgs = [label, fnStyle, ''].concat(extraArgs)
 
-    console.log.apply(console, [label, fnStyle, argStyle, ''].concat(extraArgs))
+    if (location) {
+      label += ' %c' + location
+      logArgs = [label, fnStyle, ''].concat(extraArgs, [locStyle])
+    }
+
+    console.group.apply(console, logArgs)
+
+    // 返回 cleanup 函数，在 finally 中调用以出栈并关闭分组
+    return function () {
+      colorStack.pop()
+      console.groupEnd()
+    }
   }
 })()
