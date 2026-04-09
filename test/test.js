@@ -25,7 +25,7 @@ const testCases = [
     }
   }
 }`,
-    expectFnName: 'handleSubmit'
+    expectFnName: '[methods] handleSubmit'
   },
   {
     name: 'Vue 生命周期',
@@ -37,7 +37,7 @@ const testCases = [
     this.bindEvents()
   }
 }`,
-    expectFnName: 'created'
+    expectFnName: '[lifecycle] created'
   },
   {
     name: 'computed',
@@ -48,7 +48,7 @@ const testCases = [
     }
   }
 }`,
-    expectFnName: 'fullName'
+    expectFnName: '[computed] fullName'
   },
   {
     name: 'watch',
@@ -59,7 +59,7 @@ const testCases = [
     }
   }
 }`,
-    expectFnName: 'value'
+    expectFnName: '[watch] value'
   },
   {
     name: '应跳过 forEach 回调',

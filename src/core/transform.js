@@ -6,7 +6,18 @@ const t = require('@babel/types')
 const RUNTIME_CODE = require('fs').readFileSync(require('path').resolve(__dirname, '../runtime/index.js'), 'utf-8')
 
 // 需要过滤的关键字/语句（非函数）+ Vue 的 data 钩子 + render 函数
-const SKIP_NAMES = new Set(['for', 'while', 'do', 'switch', 'catch', 'data', 'render'])
+const SKIP_NAMES = new Set(['for', 'while', 'do', 'switch', 'catch', 'data', 'render', 'click'])
+
+// Vue 上下文检测：watch/computed/methods 对象的 key
+const VUE_CONTEXT_KEYS = new Set(['watch', 'computed'])
+
+// Vue 生命周期钩子名称
+const LIFECYCLE_HOOKS = new Set([
+  'beforeCreate', 'created', 'beforeMount', 'mounted',
+  'beforeUpdate', 'updated', 'beforeDestroy', 'destroyed',
+  'activated', 'deactivated', 'beforeUnmount', 'unmounted',
+  'errorCaptured', 'renderTracked', 'renderTriggered', 'serverPrefetch'
+])
 
 // 原生数组遍历方法，作为回调时跳过
 const ARRAY_METHODS = new Set([
@@ -65,6 +76,35 @@ function getFunctionName(path) {
   if (t.isObjectProperty(parent)) {
     if (t.isIdentifier(parent.key)) return parent.key.name
     if (t.isStringLiteral(parent.key)) return parent.key.value
+  }
+
+  return ''
+}
+
+/**
+ * 检测函数所在的 Vue 上下文，返回前缀字符串
+ * 如 '[watch] '、'[computed] '、'[methods] '、'[lifecycle] '，或空字符串
+ */
+function getVueContext(path, fnName) {
+  // 向上查找祖先，检测是否在 watch/computed/methods 对象内
+  var current = path.parentPath
+  while (current) {
+    if (t.isObjectProperty(current.node)) {
+      var key = current.node.key
+      if (t.isIdentifier(key) && VUE_CONTEXT_KEYS.has(key.name)) {
+        return '[' + key.name + '] '
+      }
+    }
+    // 遇到导出声明或顶层就停止，避免向上穿透到无关作用域
+    if (t.isExportDefaultDeclaration(current.node) || t.isProgram(current.node)) {
+      break
+    }
+    current = current.parentPath
+  }
+
+  // 检查是否是生命周期钩子
+  if (LIFECYCLE_HOOKS.has(fnName)) {
+    return '[lifecycle] '
   }
 
   return ''
@@ -232,6 +272,13 @@ function transform(code, options = {}) {
       // 无名函数跳过
       if (!fnName) return
 
+      // 检测 Vue 上下文，拼接前缀
+      const vueContext = getVueContext(path, fnName)
+      const displayName = vueContext ? vueContext + fnName : fnName
+
+      // 无名函数跳过
+      if (!fnName) return
+
       // 过滤关键字
       if (SKIP_NAMES.has(fnName)) return
 
@@ -248,11 +295,11 @@ function transform(code, options = {}) {
       const shortName =
         srcIndex !== -1 ? normalizedName.slice(srcIndex + 1) : normalizedName.split('/').pop() || filename
       const line = (path.node.loc ? path.node.loc.start.line : 0) + lineOffset
-      const location = shortName.replace(/\//g, '\\') + ':' + line
+      const location = shortName + ':' + line
 
       // 保存原始函数体，构建 try/finally 包裹
       const originalStatements = [...path.node.body.body]
-      const { varDecl, tryFinally } = buildInjection(fnName, paramNames, paramIds, originalStatements, location)
+      const { varDecl, tryFinally } = buildInjection(displayName, paramNames, paramIds, originalStatements, location)
 
       // 替换函数体为：var __cl = ...; try { 原始体 } finally { __cl && __cl() }
       path.node.body.body = [varDecl, tryFinally]

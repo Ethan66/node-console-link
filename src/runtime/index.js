@@ -25,85 +25,100 @@
     '#009688'
   ]
   var colorIndex = 0
-  var colorStack = []
+  var callStack = []
+
+  // 判断是否是 DOM/Event/Vue 实例等不可序列化的对象
+  function isUnsafeObject(val) {
+    if (typeof HTMLElement !== 'undefined' && val instanceof HTMLElement) return true
+    if (typeof Event !== 'undefined' && val instanceof Event) return true
+    if (val && val._isVue) return true
+    if (val && val.__v_isVue) return true
+    return false
+  }
+
+  function safeClone(val) {
+    if (isUnsafeObject(val)) return '[' + (val.constructor ? val.constructor.name : 'Object') + ']'
+    try {
+      return JSON.parse(JSON.stringify(val))
+    } catch (e) {
+      return '[Object]'
+    }
+  }
+
+  // 将 paramStr + args 构建为 { paramName: argValue } 对象
+  // paramStr 示例: "e, { id, name }, options" 或 "...items" 或 ""
+  function buildParams(paramStr, args) {
+    if (!paramStr) return {}
+    var names = paramStr.split(', ')
+    var params = {}
+    var argIdx = 0
+    for (var i = 0; i < names.length; i++) {
+      var name = names[i].trim()
+      if (!name) continue
+      if (name.startsWith('...')) {
+        // 剩余参数: "...items" → { items: value }
+        params[name.slice(3)] = safeClone(args[argIdx++])
+      } else if (name.startsWith('{') || name.startsWith('[')) {
+        // 解构参数: "{ id, name }" → { id: val1, name: val2 }
+        var inner = name.slice(1, -1).trim()
+        var bindings = inner.split(',').map(function (s) { return s.trim() }).filter(Boolean)
+        for (var j = 0; j < bindings.length; j++) {
+          params[bindings[j]] = safeClone(args[argIdx++])
+        }
+      } else {
+        // 简单标识符
+        params[name] = safeClone(args[argIdx++])
+      }
+    }
+    return params
+  }
+
+  // 递归移除内部 __color 标记，避免出现在打印输出中
+  function stripMeta(node) {
+    if (!node) return
+    delete node.__color
+    var keys = Object.keys(node.zfn || {})
+    for (var i = 0; i < keys.length; i++) {
+      stripMeta(node.zfn[keys[i]])
+    }
+  }
 
   root.__CONSOLE_LINK__ = function (fnName, paramStr, args, location) {
-    // 栈空 = 顶层调用，分配新颜色；栈非空 = 子函数，复用栈顶颜色
-    var color = colorStack.length > 0 ? colorStack[colorStack.length - 1] : COLORS[colorIndex++ % COLORS.length]
-    colorStack.push(color)
-    var fnStyle = 'background:' + color + ';padding:1px 6px;color:#fff;border-radius:2px;'
-    var locStyle = 'background:#909399;padding:1px 6px;color:#fff;border-radius:2px;'
+    var isTopLevel = callStack.length === 0
 
-    // 判断是否是 DOM/Event/Vue 实例等不可序列化的对象
-    function isUnsafeObject(val) {
-      if (typeof HTMLElement !== 'undefined' && val instanceof HTMLElement) return true
-      if (typeof Event !== 'undefined' && val instanceof Event) return true
-      if (val && val._isVue) return true
-      if (val && val.__v_isVue) return true
-      return false
+    // 颜色分配：顶层新颜色，子函数复用父级颜色
+    var color = isTopLevel
+      ? COLORS[colorIndex++ % COLORS.length]
+      : callStack[callStack.length - 1].__color
+
+    // 构建 params 对象
+    var params = buildParams(paramStr, args)
+
+    // 构建节点
+    var node = {
+      params: params,
+      path: location || '',
+      zfn: {}
+    }
+    node.__color = color
+
+    // 挂载到父节点的 zfn
+    if (!isTopLevel) {
+      callStack[callStack.length - 1].zfn[fnName] = node
     }
 
-    function safeClone(val) {
-      if (isUnsafeObject(val)) return '[' + (val.constructor ? val.constructor.name : 'Object') + ']'
-      try {
-        return JSON.parse(JSON.stringify(val))
-      } catch (e) {
-        return '[Object]'
-      }
-    }
+    callStack.push(node)
 
-    // string/number 拼进字符串，其他类型作为独立参数传入
-    var inlineStr = ''
-    var extraArgs = []
-    for (var i = 0; i < args.length; i++) {
-      var val = args[i]
-      if (i > 0) inlineStr += ', '
-      if (typeof val === 'function') {
-        inlineStr += "'func'"
-      } else if (typeof val === 'string') {
-        // 超长字符串截断，防止乱码或二进制数据刷屏
-        var str = val.length > 200 ? val.slice(0, 200) + '...' : val
-        // 检测是否含有不可读字符（二进制/乱码）
-        if (/[\x00-\x08\x0E-\x1F\x80-\xFF]/.test(str)) {
-          inlineStr += "'[BinaryString]'"
-        } else {
-          inlineStr += "'" + str + "'"
-        }
-      } else if (typeof val === 'number') {
-        inlineStr += String(val)
-      } else {
-        if (typeof val === 'object' && val !== null && isUnsafeObject(val)) {
-          inlineStr += "'[" + (val.constructor ? val.constructor.name : 'Object') + "]'"
-        } else {
-          inlineStr += '%o'
-          if (typeof val === 'object' && val !== null) {
-            extraArgs.push(safeClone(val))
-          } else {
-            extraArgs.push(val)
-          }
-        }
-      }
-    }
-
-    var argDisplay = args.length > 0 ? ' ' + inlineStr : ''
-
-    // 格式：%c函数名(形参)%c 实参值 %c文件:行号
-    // 参数顺序：[label, fnStyle, '', ...extraArgs(对应%o), locStyle]
-    var tag = paramStr ? fnName + '(' + paramStr + ')' : fnName + '()'
-    var label = '%c' + tag + '%c' + argDisplay
-    var logArgs = [label, fnStyle, ''].concat(extraArgs)
-
-    if (location) {
-      label += ' %c' + location
-      logArgs = [label, fnStyle, ''].concat(extraArgs, [locStyle])
-    }
-
-    console.group.apply(console, logArgs)
-
-    // 返回 cleanup 函数，在 finally 中调用以出栈并关闭分组
+    // 返回清理函数，在 finally 中调用
     return function () {
-      colorStack.pop()
-      console.groupEnd()
+      callStack.pop()
+      if (isTopLevel) {
+        stripMeta(node)
+        var fnStyle = 'background:' + color + ';padding:1px 6px;color:#fff;border-radius:2px;font-weight:bold;'
+        var wrapper = {}
+        wrapper[fnName] = node
+        console.log('%c' + fnName, fnStyle, wrapper)
+      }
     }
   }
 })()
