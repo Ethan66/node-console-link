@@ -3,7 +3,10 @@ const traverse = require('@babel/traverse').default || require('@babel/traverse'
 const generate = require('@babel/generator').default || require('@babel/generator')
 const t = require('@babel/types')
 
-const RUNTIME_CODE = require('fs').readFileSync(require('path').resolve(__dirname, '../runtime/index.js'), 'utf-8')
+const path = require('path')
+const fs = require('fs')
+
+const RUNTIME_CODE = fs.readFileSync(path.resolve(__dirname, '../runtime/index.js'), 'utf-8')
 
 // 需要过滤的关键字/语句（非函数）+ Vue 的 data 钩子 + render 函数
 const SKIP_NAMES = new Set(['for', 'while', 'do', 'switch', 'catch', 'data', 'render', 'click'])
@@ -13,10 +16,22 @@ const VUE_CONTEXT_KEYS = new Set(['watch', 'computed'])
 
 // Vue 生命周期钩子名称
 const LIFECYCLE_HOOKS = new Set([
-  'beforeCreate', 'created', 'beforeMount', 'mounted',
-  'beforeUpdate', 'updated', 'beforeDestroy', 'destroyed',
-  'activated', 'deactivated', 'beforeUnmount', 'unmounted',
-  'errorCaptured', 'renderTracked', 'renderTriggered', 'serverPrefetch'
+  'beforeCreate',
+  'created',
+  'beforeMount',
+  'mounted',
+  'beforeUpdate',
+  'updated',
+  'beforeDestroy',
+  'destroyed',
+  'activated',
+  'deactivated',
+  'beforeUnmount',
+  'unmounted',
+  'errorCaptured',
+  'renderTracked',
+  'renderTriggered',
+  'serverPrefetch'
 ])
 
 // 原生数组遍历方法，作为回调时跳过
