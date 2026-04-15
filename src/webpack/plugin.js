@@ -20,21 +20,17 @@ function ConsoleLinkWebpackPlugin(userOptions = {}) {
         const hooks = HtmlWebpackPlugin.getCompilationHooks(compilation)
 
         hooks.beforeEmit.tapAsync('ConsoleLinkWebpackPlugin', function (data, cb) {
-          console.log('[ConsoleLinkWebpackPlugin] injectDevtoolFunction:', options.injectDevtoolFunction)
-          console.log('[ConsoleLinkWebpackPlugin] scriptPath:', options.scriptPath)
           if (!options.injectDevtoolFunction) {
             return cb(null, data)
           }
 
           const scriptTag = `<script src="${options.scriptPath}"></script>`
-          console.log('[ConsoleLinkWebpackPlugin] 注入 HTML:', scriptTag)
           data.html = data.html.replace('</head>', scriptTag + '</head>')
 
           cb(null, data)
         })
       } catch (e) {
         // html-webpack-plugin 未安装时静默失败
-        console.warn('[ConsoleLinkWebpackPlugin] html-webpack-plugin 未安装:', e.message)
       }
     })
   }
