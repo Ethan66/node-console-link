@@ -13,10 +13,22 @@ const VUE_CONTEXT_KEYS = new Set(['watch', 'computed'])
 
 // Vue 生命周期钩子名称
 const LIFECYCLE_HOOKS = new Set([
-  'beforeCreate', 'created', 'beforeMount', 'mounted',
-  'beforeUpdate', 'updated', 'beforeDestroy', 'destroyed',
-  'activated', 'deactivated', 'beforeUnmount', 'unmounted',
-  'errorCaptured', 'renderTracked', 'renderTriggered', 'serverPrefetch'
+  'beforeCreate',
+  'created',
+  'beforeMount',
+  'mounted',
+  'beforeUpdate',
+  'updated',
+  'beforeDestroy',
+  'destroyed',
+  'activated',
+  'deactivated',
+  'beforeUnmount',
+  'unmounted',
+  'errorCaptured',
+  'renderTracked',
+  'renderTriggered',
+  'serverPrefetch'
 ])
 
 // 原生数组遍历方法，作为回调时跳过
