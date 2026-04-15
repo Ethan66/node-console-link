@@ -6,7 +6,10 @@
       "Bash(node test/test.js)",
       "Bash(node:*)",
       "Bash(npm test:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "WebSearch",
+      "WebFetch(domain:vite.dev)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
