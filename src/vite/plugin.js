@@ -78,6 +78,17 @@ function consoleLinkPlugin(userOptions = {}) {
         return { code: result.code, map: result.map }
       }
       return { code: result.code, map: null }
+    },
+    transformIndexHtml(html) {
+      // 只在配置开启时注入
+      if (!options.injectDevtoolFunction) return html
+
+      // 计算相对路径：从 HTML 文件位置到 src/utils/console-devtool-function.js
+      // Vite 中 HTML 在根目录，所以路径是 ./src/utils/console-devtool-function.js
+      const scriptPath = './src/utils/console-devtool-function.js'
+      const scriptTag = `<script src="${scriptPath}"></script>`
+
+      return html.replace('</head>', scriptTag + '</head>')
     }
   }
 }
