@@ -5,7 +5,8 @@ const { transform } = require('../core/transform')
 const DEFAULTS = {
   enabled: true,
   injectRuntime: true,
-  ignore: [] // 白名单文件路径列表，如 ['src/utils/network.js']
+  ignore: [], // 白名单文件路径列表，如 ['src/utils/network.js']
+  injectDevtoolFunction: false // 是否在 HTML 中注入 console-devtool-function.js
 }
 
 /**
@@ -16,7 +17,7 @@ function isIgnored(resourcePath, ignoreList, context) {
   if (!ignoreList || ignoreList.length === 0) return false
   // 统一用 / 分隔
   const relativePath = path.relative(context, resourcePath).replace(/\\/g, '/')
-  return ignoreList.some(function(pattern) {
+  return ignoreList.some(function (pattern) {
     const p = pattern.replace(/\\/g, '/')
     if (relativePath === p || relativePath.endsWith('/' + p)) return true
     if (relativePath.startsWith(p + '/')) return true
