@@ -1,6 +1,8 @@
+const { createRequire } = require('module')
+
 /**
- * Webpack æ’ä»¶ï¼šåœ¨ HTML ä¸­æ³¨å…¥ console-devtool-function.js
- * ä¾èµ– html-webpack-plugin çš„ beforeEmit hook
+ * Webpack ²å¼ş£ºÔÚ HTML ÖĞ×¢Èë console-devtool-function.js
+ * ¼æÈİ html-webpack-plugin v3/v4+
  */
 function ConsoleLinkWebpackPlugin(userOptions = {}) {
   const options = Object.assign(
@@ -11,28 +13,54 @@ function ConsoleLinkWebpackPlugin(userOptions = {}) {
     userOptions
   )
 
-  this.apply = function (compiler) {
-    compiler.hooks.thisCompilation.tap('ConsoleLinkWebpackPlugin', function (compilation) {
-      // åŠ¨æ€è·å– html-webpack-plugin çš„ hooks
-      // å¦‚æœæ’ä»¶æœªå®‰è£…ï¼Œé™é»˜å¤±è´¥
+  function injectIntoHtml(data, cb) {
+    if (!options.injectDevtoolFunction) return cb(null, data)
+
+    if (!data || typeof data.html !== 'string') return cb(null, data)
+    if (data.html.indexOf(options.scriptPath) !== -1) return cb(null, data)
+
+    const scriptTag = `\n<script>console.log('[console-devtool-function] loaded', '${options.scriptPath}')</script>\n<script src="${options.scriptPath}"></script>`
+
+    if (/<\/head>/i.test(data.html)) {
+      data.html = data.html.replace(/<\/head>/i, scriptTag + '\n</head>')
+    } else {
+      data.html += scriptTag
+    }
+
+    cb(null, data)
+  }
+
+  function resolveHtmlWebpackPlugin(compiler) {
+    try {
+      return require('html-webpack-plugin')
+    } catch (e) {
       try {
-        const HtmlWebpackPlugin = require('html-webpack-plugin')
+        const req = createRequire(compiler.context + '/')
+        return req('html-webpack-plugin')
+      } catch (innerErr) {
+        return null
+      }
+    }
+  }
+
+  this.apply = function (compiler) {
+    compiler.hooks.compilation.tap('ConsoleLinkWebpackPlugin', function (compilation) {
+      const HtmlWebpackPlugin = resolveHtmlWebpackPlugin(compiler)
+
+      // html-webpack-plugin v4/v5
+      if (HtmlWebpackPlugin && typeof HtmlWebpackPlugin.getCompilationHooks === 'function') {
         const hooks = HtmlWebpackPlugin.getCompilationHooks(compilation)
+        hooks.beforeEmit.tapAsync('ConsoleLinkWebpackPlugin', injectIntoHtml)
+        return
+      }
 
-        hooks.beforeEmit.tapAsync('ConsoleLinkWebpackPlugin', function (data, cb) {
-          if (!options.injectDevtoolFunction) {
-            return cb(null, data)
-          }
-
-          const scriptTag = `
-<script>console.log('[console-devtool-function] å·²åŠ è½½:', '${options.scriptPath}')</script>
-<script src="${options.scriptPath}"></script>`
-          data.html = data.html.replace('</head>', scriptTag + '</head>')
-
-          cb(null, data)
-        })
-      } catch (e) {
-        // html-webpack-plugin æœªå®‰è£…æ—¶é™é»˜å¤±è´¥
+      // html-webpack-plugin v3£¨Vue CLI 4 ³£¼û£©
+      if (compilation.hooks && compilation.hooks.htmlWebpackPluginBeforeHtmlProcessing) {
+        compilation.hooks.htmlWebpackPluginBeforeHtmlProcessing.tapAsync('ConsoleLinkWebpackPlugin', injectIntoHtml)
+        return
+      }
+      if (typeof compilation.plugin === 'function') {
+        compilation.plugin('html-webpack-plugin-before-html-processing', injectIntoHtml)
       }
     })
   }

@@ -52,5 +52,8 @@ function useConsoleDevtools() {
     window[EXTENSION_ID_KEY] = extId
     connect()
   })
-  return { send }
+  return { sendConsoleToExtension: send }
 }
+
+const { sendConsoleToExtension } = useConsoleDevtools()
+window.sendConsoleToExtension = sendConsoleToExtension
