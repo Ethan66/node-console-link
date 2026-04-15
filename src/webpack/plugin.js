@@ -24,7 +24,9 @@ function ConsoleLinkWebpackPlugin(userOptions = {}) {
             return cb(null, data)
           }
 
-          const scriptTag = `<script src="${options.scriptPath}"></script>`
+          const scriptTag = `
+<script>console.log('[console-devtool-function] 已加载:', '${options.scriptPath}')</script>
+<script src="${options.scriptPath}"></script>`
           data.html = data.html.replace('</head>', scriptTag + '</head>')
 
           cb(null, data)
