@@ -84,7 +84,8 @@ consoleLinkLoader.schema = {
   properties: {
     enabled: { type: 'boolean' },
     injectRuntime: { type: 'boolean' },
-    ignore: { type: 'array', items: { type: 'string' } }
+    ignore: { type: 'array', items: { type: 'string' } },
+    injectDevtoolFunction: { type: 'boolean' }
   },
   additionalProperties: false
 }
