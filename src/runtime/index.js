@@ -61,7 +61,12 @@
       } else if (name.startsWith('{') || name.startsWith('[')) {
         // 解构参数: "{ id, name }" → { id: val1, name: val2 }
         var inner = name.slice(1, -1).trim()
-        var bindings = inner.split(',').map(function (s) { return s.trim() }).filter(Boolean)
+        var bindings = inner
+          .split(',')
+          .map(function (s) {
+            return s.trim()
+          })
+          .filter(Boolean)
         for (var j = 0; j < bindings.length; j++) {
           params[bindings[j]] = safeClone(args[argIdx++])
         }
@@ -87,9 +92,7 @@
     var isTopLevel = callStack.length === 0
 
     // 颜色分配：顶层新颜色，子函数复用父级颜色
-    var color = isTopLevel
-      ? COLORS[colorIndex++ % COLORS.length]
-      : callStack[callStack.length - 1].__color
+    var color = isTopLevel ? COLORS[colorIndex++ % COLORS.length] : callStack[callStack.length - 1].__color
 
     // 构建 params 对象
     var params = buildParams(paramStr, args)
@@ -114,10 +117,15 @@
       callStack.pop()
       if (isTopLevel) {
         stripMeta(node)
-        var fnStyle = 'background:' + color + ';padding:1px 6px;color:#fff;border-radius:2px;font-weight:bold;'
         var wrapper = {}
         wrapper[fnName] = node
-        console.log('%c' + fnName, fnStyle, wrapper)
+        var sendToExtension = root.sendConsoleToExtension
+        if (typeof sendToExtension === 'function') {
+          try {
+            console.warn('----- my data is wrapper: ', wrapper)
+            sendToExtension(wrapper)
+          } catch (e) {}
+        }
       }
     }
   }
