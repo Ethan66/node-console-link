@@ -1,10 +1,12 @@
-const { transform } = require('../core/transform')
+const { buildSourceLineMap, transform } = require('../core/transform')
+const fs = require('fs')
 const path = require('path')
 
 const JS_RE = /\.[jt]sx?$/
 const VUE_RE = /\.vue$/
 // vite 处理 .vue 时会带上 type=script 的 query
 const VUE_SCRIPT_RE = /\.vue\?.*type=script/
+const VUE_TEMPLATE_RE = /\.vue\?.*type=template/
 
 const DEFAULTS = {
   enabled: true,
@@ -26,9 +28,40 @@ function isIgnored(filePath, ignoreList, root) {
   })
 }
 
+function getVueScriptInfo(vueContent) {
+  const scriptMatch = vueContent.match(/<script\b([^>]*)>([\s\S]*?)<\/script>/i)
+  if (!scriptMatch) {
+    return { code: '', lineOffset: 0, filenameSuffix: '.js' }
+  }
+
+  const attrs = scriptMatch[1] || ''
+  const beforeScript = vueContent.slice(0, scriptMatch.index)
+  let filenameSuffix = '.js'
+
+  if (/\blang\s*=\s*["']ts["']/i.test(attrs)) {
+    filenameSuffix = '.ts'
+  } else if (/\blang\s*=\s*["']tsx["']/i.test(attrs)) {
+    filenameSuffix = '.tsx'
+  } else if (/\blang\s*=\s*["']jsx["']/i.test(attrs)) {
+    filenameSuffix = '.jsx'
+  }
+
+  return {
+    code: scriptMatch[2],
+    lineOffset: beforeScript.split('\n').length,
+    filenameSuffix
+  }
+}
+
 function consoleLinkPlugin(userOptions = {}) {
   const options = Object.assign({}, DEFAULTS, userOptions)
   let projectRoot = ''
+  let devtoolFunctionCode = ''
+
+  if (options.injectDevtoolFunction) {
+    const devtoolFunctionPath = path.resolve(__dirname, '../utils/console-devtool-function.js')
+    devtoolFunctionCode = fs.readFileSync(devtoolFunctionPath, 'utf-8')
+  }
 
   return {
     name: 'vite-plugin-console-link',
@@ -41,6 +74,9 @@ function consoleLinkPlugin(userOptions = {}) {
 
       // 生产环境自动关闭
       if (process.env.NODE_ENV === 'production') return null
+
+      // 跳过 Vue 模板编译产物，避免注入 _sfc_render 等框架函数
+      if (VUE_TEMPLATE_RE.test(id)) return null
 
       // 排除 node_modules
       const normalizedId = id.split('?')[0]
@@ -67,11 +103,31 @@ function consoleLinkPlugin(userOptions = {}) {
       // 白名单文件跳过
       if (isIgnored(normalizedId, options.ignore, projectRoot)) return null
 
-      const filename = normalizedId.split('/').pop() || normalizedId.split('\\').pop() || 'unknown.js'
+      const filename = normalizedId || 'unknown.js'
+      let lineOffset = 0
+      let sourceLineMap = null
+
+      if (isVue || isVueScript) {
+        try {
+          const vueContent = fs.readFileSync(normalizedId, 'utf-8')
+          const scriptInfo = getVueScriptInfo(vueContent)
+          lineOffset = scriptInfo.lineOffset
+          if (scriptInfo.code) {
+            sourceLineMap = buildSourceLineMap(scriptInfo.code, {
+              filename: normalizedId + scriptInfo.filenameSuffix,
+              lineOffset
+            })
+          }
+        } catch (e) {
+          // 读取失败则不偏移
+        }
+      }
 
       const result = transform(code, {
         filename,
-        injectRuntime: options.injectRuntime
+        injectRuntime: options.injectRuntime,
+        lineOffset,
+        sourceLineMap
       })
 
       if (result.map) {
@@ -83,10 +139,8 @@ function consoleLinkPlugin(userOptions = {}) {
       // 只在配置开启时注入
       if (!options.injectDevtoolFunction) return html
 
-      // 计算相对路径：从 HTML 文件位置到 src/utils/console-devtool-function.js
-      // Vite 中 HTML 在根目录，所以路径是 ./src/utils/console-devtool-function.js
-      const scriptPath = './src/utils/console-devtool-function.js'
-      const scriptTag = `<script src="${scriptPath}"></script>`
+      // 直接内联插件自带脚本，避免业务项目额外放置静态文件
+      const scriptTag = `<script>\n${devtoolFunctionCode}\n</script>`
 
       return html.replace('</head>', scriptTag + '</head>')
     }

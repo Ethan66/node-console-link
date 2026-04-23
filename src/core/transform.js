@@ -6,7 +6,7 @@ const t = require('@babel/types')
 const RUNTIME_CODE = require('fs').readFileSync(require('path').resolve(__dirname, '../runtime/index.js'), 'utf-8')
 
 // 需要过滤的关键字/语句（非函数）+ Vue 的 data 钩子 + render 函数
-const SKIP_NAMES = new Set(['for', 'while', 'do', 'switch', 'catch', 'data', 'render', 'click'])
+const SKIP_NAMES = new Set(['for', 'while', 'do', 'switch', 'catch', 'data', 'render', 'click', 'setup', '_sfc_render'])
 
 // Vue 上下文检测：watch/computed/methods 对象的 key
 const VUE_CONTEXT_KEYS = new Set(['watch', 'computed'])
@@ -181,6 +181,49 @@ function collectBindingIdentifiers(node, result) {
   }
 }
 
+function buildSourceLineMap(code, options = {}) {
+  const { filename = 'unknown.js', lineOffset = 0 } = options
+  const isTS = /\.tsx?$/.test(filename)
+  const isJSX = /\.[jt]sx$/.test(filename)
+  const plugins = ['decorators-legacy', 'classProperties', 'classPrivateProperties', 'classPrivateMethods']
+  if (isTS) plugins.push('typescript')
+  if (isJSX || isTS) plugins.push('jsx')
+  if (!isTS) plugins.push('jsx')
+
+  let ast
+  try {
+    ast = parser.parse(code, {
+      sourceType: 'module',
+      allowImportExportEverywhere: true,
+      plugins
+    })
+  } catch (e) {
+    return {}
+  }
+
+  const lineMap = {}
+
+  traverse(ast, {
+    'FunctionDeclaration|FunctionExpression|ArrowFunctionExpression|ObjectMethod|ClassMethod': function (path) {
+      if (!t.isBlockStatement(path.node.body)) return
+
+      const fnName = getFunctionName(path)
+      if (!fnName) return
+      if (SKIP_NAMES.has(fnName)) return
+      if (isArrayMethodCallback(path)) return
+
+      const vueContext = getVueContext(path, fnName)
+      const displayName = vueContext ? vueContext + fnName : fnName
+
+      if (!lineMap[displayName] && path.node.loc) {
+        lineMap[displayName] = path.node.loc.start.line + lineOffset
+      }
+    }
+  })
+
+  return lineMap
+}
+
 /**
  * 获取形参名字符串列表（用于运行时显示）
  */
@@ -248,7 +291,7 @@ function buildInjection(fnName, paramNames, paramIds, originalStatements, locati
  * @returns {{ code: string, map?: object }}
  */
 function transform(code, options = {}) {
-  const { filename = 'unknown.js', injectRuntime = true, lineOffset = 0 } = options
+  const { filename = 'unknown.js', injectRuntime = true, lineOffset = 0, sourceLineMap = null } = options
 
   const isTS = /\.tsx?$/.test(filename)
   const isJSX = /\.[jt]sx$/.test(filename)
@@ -306,7 +349,7 @@ function transform(code, options = {}) {
       const srcIndex = normalizedName.lastIndexOf('/src/')
       const shortName =
         srcIndex !== -1 ? normalizedName.slice(srcIndex + 1) : normalizedName.split('/').pop() || filename
-      const line = (path.node.loc ? path.node.loc.start.line : 0) + lineOffset
+      const line = sourceLineMap && sourceLineMap[displayName] ? sourceLineMap[displayName] : (path.node.loc ? path.node.loc.start.line : 0) + lineOffset
       const location = shortName + ':' + line
 
       // 保存原始函数体，构建 try/finally 包裹
@@ -343,6 +386,7 @@ function transform(code, options = {}) {
 }
 
 module.exports = {
+  buildSourceLineMap,
   transform,
   RUNTIME_CODE
 }
