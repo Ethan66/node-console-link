@@ -201,7 +201,7 @@ function buildSourceLineMap(code, options = {}) {
     return {}
   }
 
-  const lineMap = {}
+  const lineMap = Object.create(null)
 
   traverse(ast, {
     'FunctionDeclaration|FunctionExpression|ArrowFunctionExpression|ObjectMethod|ClassMethod': function (path) {
@@ -215,7 +215,7 @@ function buildSourceLineMap(code, options = {}) {
       const vueContext = getVueContext(path, fnName)
       const displayName = vueContext ? vueContext + fnName : fnName
 
-      if (!lineMap[displayName] && path.node.loc) {
+      if (!Object.prototype.hasOwnProperty.call(lineMap, displayName) && path.node.loc) {
         lineMap[displayName] = path.node.loc.start.line + lineOffset
       }
     }
@@ -349,7 +349,9 @@ function transform(code, options = {}) {
       const srcIndex = normalizedName.lastIndexOf('/src/')
       const shortName =
         srcIndex !== -1 ? normalizedName.slice(srcIndex + 1) : normalizedName.split('/').pop() || filename
-      const line = sourceLineMap && sourceLineMap[displayName] ? sourceLineMap[displayName] : (path.node.loc ? path.node.loc.start.line : 0) + lineOffset
+      const line = sourceLineMap && Object.prototype.hasOwnProperty.call(sourceLineMap, displayName)
+        ? sourceLineMap[displayName]
+        : (path.node.loc ? path.node.loc.start.line : 0) + lineOffset
       const location = shortName + ':' + line
 
       // 保存原始函数体，构建 try/finally 包裹

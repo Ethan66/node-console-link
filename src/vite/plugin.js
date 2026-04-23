@@ -121,6 +121,16 @@ function consoleLinkPlugin(userOptions = {}) {
         } catch (e) {
           // 读取失败则不偏移
         }
+      } else {
+        try {
+          const sourceCode = fs.readFileSync(normalizedId, 'utf-8')
+          sourceLineMap = buildSourceLineMap(sourceCode, {
+            filename,
+            lineOffset: 0
+          })
+        } catch (e) {
+          // 读取失败则不使用源码行号映射
+        }
       }
 
       const result = transform(code, {
