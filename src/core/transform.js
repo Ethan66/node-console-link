@@ -255,7 +255,7 @@ function getParamNames(params) {
  * var __cl = window.__CONSOLE_LINK__ && window.__CONSOLE_LINK__("fnName", "a, b", [a, b]);
  * try { ...originalBody } finally { __cl && __cl(); }
  */
-function buildInjection(fnName, paramNames, paramIds, originalStatements, location) {
+function buildInjection(fnName, paramNames, paramIds, originalStatements, location, isAsync) {
   const consoleLinkAccess = t.memberExpression(t.identifier('window'), t.identifier('__CONSOLE_LINK__'))
 
   const callExpr = t.callExpression(t.memberExpression(t.identifier('window'), t.identifier('__CONSOLE_LINK__')), [
@@ -270,14 +270,47 @@ function buildInjection(fnName, paramNames, paramIds, originalStatements, locati
     t.variableDeclarator(t.identifier('__cl'), t.logicalExpression('&&', consoleLinkAccess, callExpr))
   ])
 
-  // try { ...originalBody } finally { __cl && __cl() }
-  const tryFinally = t.tryStatement(
-    t.blockStatement(originalStatements),
-    null,
-    t.blockStatement([
-      t.expressionStatement(t.logicalExpression('&&', t.identifier('__cl'), t.callExpression(t.identifier('__cl'), [])))
-    ])
-  )
+  let tryFinally
+
+  if (isAsync) {
+    const resultDecl = t.variableDeclaration('var', [t.variableDeclarator(t.identifier('__cl_result'), null)])
+    const wrappedBody = t.callExpression(
+      t.memberExpression(
+        t.arrowFunctionExpression([], t.blockStatement(originalStatements), true),
+        t.identifier('call')
+      ),
+      [t.thisExpression()]
+    )
+
+    tryFinally = t.tryStatement(
+      t.blockStatement([
+        resultDecl,
+        t.expressionStatement(
+          t.assignmentExpression('=', t.identifier('__cl_result'), wrappedBody)
+        ),
+        t.returnStatement(t.awaitExpression(t.identifier('__cl_result')))
+      ]),
+      null,
+      t.blockStatement([
+        t.expressionStatement(
+          t.logicalExpression(
+            '&&',
+            t.identifier('__cl'),
+            t.callExpression(t.identifier('__cl'), [t.identifier('__cl_result')])
+          )
+        )
+      ])
+    )
+  } else {
+    // try { ...originalBody } finally { __cl && __cl() }
+    tryFinally = t.tryStatement(
+      t.blockStatement(originalStatements),
+      null,
+      t.blockStatement([
+        t.expressionStatement(t.logicalExpression('&&', t.identifier('__cl'), t.callExpression(t.identifier('__cl'), [])))
+      ])
+    )
+  }
 
   return { varDecl, tryFinally }
 }
@@ -356,7 +389,14 @@ function transform(code, options = {}) {
 
       // 保存原始函数体，构建 try/finally 包裹
       const originalStatements = [...path.node.body.body]
-      const { varDecl, tryFinally } = buildInjection(displayName, paramNames, paramIds, originalStatements, location)
+      const { varDecl, tryFinally } = buildInjection(
+        displayName,
+        paramNames,
+        paramIds,
+        originalStatements,
+        location,
+        path.node.async
+      )
 
       // 替换函数体为：var __cl = ...; try { 原始体 } finally { __cl && __cl() }
       path.node.body.body = [varDecl, tryFinally]

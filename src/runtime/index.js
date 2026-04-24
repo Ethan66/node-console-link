@@ -112,9 +112,13 @@
 
     callStack.push(node)
 
-    // 返回清理函数，在 finally 中调用
-    return function () {
-      callStack.pop()
+    function flushNode() {
+      for (var i = callStack.length - 1; i >= 0; i--) {
+        if (callStack[i] === node) {
+          callStack.splice(i, 1)
+          break
+        }
+      }
       if (isTopLevel) {
         stripMeta(node)
         var wrapper = {}
@@ -127,6 +131,17 @@
           } catch (e) {}
         }
       }
+    }
+
+    // 返回清理函数，在 finally 中调用
+    return function (result) {
+      if (result && typeof result.then === 'function' && typeof result.finally === 'function') {
+        return result.finally(function () {
+          flushNode()
+        })
+      }
+      flushNode()
+      return result
     }
   }
 })()
