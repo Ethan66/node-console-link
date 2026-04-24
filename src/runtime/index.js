@@ -82,6 +82,10 @@
   function stripMeta(node) {
     if (!node) return
     delete node.__color
+    delete node.__root
+    delete node.__pendingCount
+    delete node.__sendTimer
+    delete node.__send
     var keys = Object.keys(node.zfn || {})
     for (var i = 0; i < keys.length; i++) {
       stripMeta(node.zfn[keys[i]])
@@ -103,11 +107,37 @@
       path: location || '',
       zfn: {}
     }
+    var parentNode = callStack.length > 0 ? callStack[callStack.length - 1] : null
+    var rootNode = parentNode ? parentNode.__root || parentNode : node
     node.__color = color
+    node.__root = rootNode
+
+    if (node === rootNode) {
+      node.__pendingCount = 0
+      node.__send = function () {
+        stripMeta(node)
+        var wrapper = {}
+        wrapper[fnName] = node
+        var sendToExtension = root.sendConsoleToExtension
+        if (typeof sendToExtension === 'function') {
+          try {
+            const data = JSON.parse(JSON.stringify(wrapper))
+            console.warn('----- my data is wrapper: ', wrapper)
+            sendToExtension(wrapper)
+          } catch (e) {}
+        }
+      }
+    }
+
+    if (rootNode.__sendTimer) {
+      clearTimeout(rootNode.__sendTimer)
+      rootNode.__sendTimer = null
+    }
+    rootNode.__pendingCount++
 
     // 挂载到父节点的 zfn
     if (!isTopLevel) {
-      callStack[callStack.length - 1].zfn[fnName] = node
+      parentNode.zfn[fnName] = node
     }
 
     callStack.push(node)
@@ -119,17 +149,15 @@
           break
         }
       }
-      if (isTopLevel) {
-        stripMeta(node)
-        var wrapper = {}
-        wrapper[fnName] = node
-        var sendToExtension = root.sendConsoleToExtension
-        if (typeof sendToExtension === 'function') {
-          try {
-            console.warn('----- my data is wrapper: ', wrapper)
-            sendToExtension(wrapper)
-          } catch (e) {}
-        }
+      if (rootNode.__pendingCount > 0) {
+        rootNode.__pendingCount--
+      }
+      if (rootNode.__pendingCount === 0 && typeof rootNode.__send === 'function') {
+        rootNode.__sendTimer = setTimeout(function () {
+          if (rootNode.__pendingCount === 0) {
+            rootNode.__send()
+          }
+        }, 0)
       }
     }
 
