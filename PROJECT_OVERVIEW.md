@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-一个 Node.js CLI 工具（命令：`pr-link`），用于**自动给 JS/TS/Vue 文件中的每个函数体开头注入 `console.log`**，打印函数名和参数，方便调试。
+一个 Node.js CLI 工具（命令：`pr-link`），用于**自动给 JS/TS/Vue 文件中的每个函数体开头注入 `console.log`**，打印函数名、参数、路径，以及函数体内实际执行的 API 调用名，方便调试。
 
 ---
 

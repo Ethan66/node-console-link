@@ -5,7 +5,7 @@ A library of supports console function link.
 2. 在别人开发代码后，在提测阶段是我们进行修改bug，这时候就要去看项目代码，很耗时。
 
 ### 解决方案：
-在某个文件或者某个目录的所有文件下的每个函数头部自动添加console.log，加上打印值，第一个为打印函数的名称，参照vue-devtool的样式，显得醒目。从第二个值开始是参数，对象会转为JSON对象
+在某个文件或者某个目录的所有文件下的每个函数头部自动添加console.log，加上打印值，第一个为打印函数的名称，参照vue-devtool的样式，显得醒目。从第二个值开始是参数，对象会转为JSON对象；同时还会收集函数体内真实执行的 API 调用名，例如 `api.get()`、`api.xx.get()`、`myApi.fetch()`，输出括号前的完整调用前缀。
 
 
 #### 使用说明
@@ -22,3 +22,11 @@ npm i -g node-console-link
 $ pr-link ./index.vue
 $ pr-link ./src
 ```
+
+#### API 调用名规则
+
+- 只统计真正执行的调用表达式，不统计普通属性引用
+- `api.get(id)` 记录为 `api.get`
+- `api.xx.get(id)` 记录为 `api.xx.get`
+- `myApi.fetch()` 记录为 `myApi.fetch`
+- `const apiMyname = api.metho || api.methos2` 不记录，因为这里没有发生函数调用

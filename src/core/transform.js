@@ -249,20 +249,55 @@ function getParamNames(params) {
   return names
 }
 
+function collectApiCalls(functionPath) {
+  const apiCalls = []
+  const seen = new Set()
+  const functionBodyPath = functionPath.get('body')
+  const HTTP_METHOD_RE = /^(.*?\.(?:get|post|put|delete|patch|head|options|request))\b/i
+
+  function rememberApiCall(name) {
+    if (!name || seen.has(name)) return
+    seen.add(name)
+    apiCalls.push(name)
+  }
+
+  function normalizeApiCallName(calleeCode) {
+    if (!calleeCode) return ''
+    const flattened = calleeCode.replace(/\s+/g, ' ').trim()
+    const httpMethodMatch = flattened.match(HTTP_METHOD_RE)
+    if (httpMethodMatch) return httpMethodMatch[1]
+    return flattened
+  }
+
+  functionBodyPath.traverse({
+    Function(path) {
+      path.skip()
+    },
+    CallExpression(path) {
+      const calleeCode = normalizeApiCallName(generate(path.node.callee).code)
+      if (!/api/i.test(calleeCode)) return
+      rememberApiCall(calleeCode)
+    }
+  })
+
+  return apiCalls
+}
+
 /**
  * 构建注入的 AST 节点（含 try/finally）：
  *
- * var __cl = window.__CONSOLE_LINK__ && window.__CONSOLE_LINK__("fnName", "a, b", [a, b]);
+ * var __cl = window.__CONSOLE_LINK__ && window.__CONSOLE_LINK__("fnName", "a, b", [a, b], "path", ["api.get"]);
  * try { ...originalBody } finally { __cl && __cl(); }
  */
-function buildInjection(fnName, paramNames, paramIds, originalStatements, location, isAsync) {
+function buildInjection(fnName, paramNames, paramIds, originalStatements, location, apiCalls, isAsync) {
   const consoleLinkAccess = t.memberExpression(t.identifier('window'), t.identifier('__CONSOLE_LINK__'))
 
   const callExpr = t.callExpression(t.memberExpression(t.identifier('window'), t.identifier('__CONSOLE_LINK__')), [
     t.stringLiteral(fnName),
     t.stringLiteral(paramNames.join(', ')),
     t.arrayExpression(paramIds),
-    t.stringLiteral(location)
+    t.stringLiteral(location),
+    t.arrayExpression(apiCalls.map(name => t.stringLiteral(name)))
   ])
 
   // var __cl = window.__CONSOLE_LINK__ && window.__CONSOLE_LINK__(...)
@@ -376,6 +411,7 @@ function transform(code, options = {}) {
       // 获取参数标识符和形参名
       const paramIds = getParamIdentifiers(path.node.params)
       const paramNames = getParamNames(path.node.params)
+      const apiCalls = collectApiCalls(path)
 
       // 获取从 src 开始的文件路径和行号
       const normalizedName = filename.replace(/\\/g, '/')
@@ -395,6 +431,7 @@ function transform(code, options = {}) {
         paramIds,
         originalStatements,
         location,
+        apiCalls,
         path.node.async
       )
 

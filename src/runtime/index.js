@@ -92,7 +92,7 @@
     }
   }
 
-  root.__CONSOLE_LINK__ = function (fnName, paramStr, args, location) {
+  root.__CONSOLE_LINK__ = function (fnName, paramStr, args, location, apiList) {
     var isTopLevel = callStack.length === 0
 
     // 颜色分配：顶层新颜色，子函数复用父级颜色
@@ -105,6 +105,7 @@
     var node = {
       params: params,
       path: location || '',
+      api: Array.isArray(apiList) ? apiList.slice() : [],
       zfn: {}
     }
     var parentNode = callStack.length > 0 ? callStack[callStack.length - 1] : null
