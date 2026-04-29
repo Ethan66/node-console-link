@@ -1,6 +1,6 @@
 {
   "name": "node-console-link",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Auto-inject console.log into business functions for Vue2/Vue3 projects",
   "main": "dist/index.js",
   "files": [
