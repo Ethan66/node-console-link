@@ -17,6 +17,18 @@ const DEFAULTS = {
   injectDevtoolFunction: false // 是否在 HTML 中注入 console-devtool-function.js
 }
 
+function resolveDevtoolSourcePath() {
+  const candidates = [
+    path.resolve(__dirname, '../utils/console-devtool-function.js'),
+    path.resolve(__dirname, './utils/console-devtool-function.js')
+  ]
+  const devtoolSourcePath = candidates.find(candidate => fs.existsSync(candidate))
+  if (!devtoolSourcePath) {
+    throw new Error('[vite-plugin-console-link] console-devtool-function.js not found')
+  }
+  return devtoolSourcePath
+}
+
 function isIgnored(filePath, ignoreList, root) {
   if (!ignoreList || ignoreList.length === 0) return false
   var relativePath = path.relative(root, filePath).replace(/\\/g, '/')
@@ -59,7 +71,7 @@ function consoleLinkPlugin(userOptions = {}) {
   let devtoolFunctionCode = ''
 
   if (options.injectDevtoolFunction) {
-    const devtoolFunctionPath = path.resolve(__dirname, '../utils/console-devtool-function.js')
+    const devtoolFunctionPath = resolveDevtoolSourcePath()
     devtoolFunctionCode = fs.readFileSync(devtoolFunctionPath, 'utf-8')
   }
 

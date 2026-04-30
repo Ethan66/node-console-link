@@ -3,9 +3,9 @@ import commonjs from '@rollup/plugin-commonjs'
 import fs from 'fs'
 import path from 'path'
 
-// 复制 runtime 文件到 dist（runtime 不需要 bundle，原样保留）
-const copyRuntime = {
-  name: 'copy-runtime',
+// 复制 runtime/utils 文件到 dist（这些文件不参与 bundle，原样保留）
+const copyStaticAssets = {
+  name: 'copy-static-assets',
   generateBundle() {
     const runtimeDir = path.resolve('dist/runtime')
     if (!fs.existsSync(runtimeDir)) {
@@ -13,6 +13,13 @@ const copyRuntime = {
     }
     const runtimeCode = fs.readFileSync('src/runtime/index.js', 'utf-8')
     fs.writeFileSync(path.resolve(runtimeDir, 'index.js'), runtimeCode)
+
+    const utilsDir = path.resolve('dist/utils')
+    if (!fs.existsSync(utilsDir)) {
+      fs.mkdirSync(utilsDir, { recursive: true })
+    }
+    const devtoolCode = fs.readFileSync('src/utils/console-devtool-function.js', 'utf-8')
+    fs.writeFileSync(path.resolve(utilsDir, 'console-devtool-function.js'), devtoolCode)
   }
 }
 
@@ -33,7 +40,7 @@ export default [
       'fs',
       'path'
     ],
-    plugins: [resolve(), commonjs(), copyRuntime]
+    plugins: [resolve(), commonjs(), copyStaticAssets]
   },
   // webpack loader
   {

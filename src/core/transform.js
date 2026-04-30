@@ -1,9 +1,23 @@
+const fs = require('fs')
+const path = require('path')
 const parser = require('@babel/parser')
 const traverse = require('@babel/traverse').default || require('@babel/traverse')
 const generate = require('@babel/generator').default || require('@babel/generator')
 const t = require('@babel/types')
 
-const RUNTIME_CODE = require('fs').readFileSync(require('path').resolve(__dirname, '../runtime/index.js'), 'utf-8')
+function resolveRuntimePath() {
+  const candidates = [
+    path.resolve(__dirname, '../runtime/index.js'),
+    path.resolve(__dirname, './runtime/index.js')
+  ]
+  const runtimePath = candidates.find(candidate => fs.existsSync(candidate))
+  if (!runtimePath) {
+    throw new Error('[console-link] runtime/index.js not found')
+  }
+  return runtimePath
+}
+
+const RUNTIME_CODE = fs.readFileSync(resolveRuntimePath(), 'utf-8')
 
 // 需要过滤的关键字/语句（非函数）+ Vue 的 data 钩子 + render 函数
 const SKIP_NAMES = new Set(['for', 'while', 'do', 'switch', 'catch', 'data', 'render', 'click', 'setup', '_sfc_render'])

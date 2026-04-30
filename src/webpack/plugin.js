@@ -3,7 +3,18 @@ const path = require('path')
 const { createRequire } = require('module')
 
 const PLUGIN_NAME = 'ConsoleLinkWebpackPlugin'
-const DEVTOOL_SOURCE_PATH = path.resolve(__dirname, '../utils/console-devtool-function.js')
+
+function resolveDevtoolSourcePath() {
+  const candidates = [
+    path.resolve(__dirname, '../utils/console-devtool-function.js'),
+    path.resolve(__dirname, './utils/console-devtool-function.js')
+  ]
+  const devtoolSourcePath = candidates.find(candidate => fs.existsSync(candidate))
+  if (!devtoolSourcePath) {
+    throw new Error(`[${PLUGIN_NAME}] console-devtool-function.js not found`)
+  }
+  return devtoolSourcePath
+}
 
 /**
  * Webpack plugin: inject console-devtool-function.js into HTML
@@ -32,7 +43,7 @@ function ConsoleLinkWebpackPlugin(userOptions = {}) {
   function emitDevtoolAsset(compilation, compiler) {
     if (!options.injectDevtoolFunction) return
 
-    const assetContent = fs.readFileSync(DEVTOOL_SOURCE_PATH, 'utf-8')
+    const assetContent = fs.readFileSync(resolveDevtoolSourcePath(), 'utf-8')
     const normalizedFilePath = String(options.filePath).replace(/^\/+/, '')
 
     if (typeof compilation.emitAsset === 'function' && compiler.webpack && compiler.webpack.sources) {
