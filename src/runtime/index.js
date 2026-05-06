@@ -122,8 +122,9 @@
         var sendToExtension = root.sendConsoleToExtension
         if (typeof sendToExtension === 'function') {
           try {
+            /* testzc
             const data = JSON.parse(JSON.stringify(wrapper))
-            console.warn('----- my data is wrapper: ', wrapper)
+            console.warn('----- my data is wrapper: ', wrapper) */
             sendToExtension(wrapper)
           } catch (e) {}
         }
